@@ -1,6 +1,7 @@
 package de.youtschik.privat
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -72,8 +73,9 @@ object Engine {
 
     private fun fetch(url: String, tmp: File, sponsor: Boolean): File {
         val template = "${tmp.absolutePath}/%(title).100B.%(ext)s"
-        fun base() = YoutubeDLRequest(url).apply {
+        fun base() = YoutubeDLRequest(singleVideo(url)).apply {
             addOption("--no-playlist")
+            addOption("--playlist-items", "1") // reine Playlist-Links: nie mehr als ein Titel
             addOption("--windows-filenames")
             addOption("--no-mtime")
             addOption("-o", template)
@@ -111,6 +113,23 @@ object Engine {
         val audio = setOf("mp3", "m4a", "webm", "opus", "ogg", "aac", "flac", "wav")
         return tmp.listFiles()?.filter { it.isFile && it.extension.lowercase() in audio }
             ?.maxByOrNull { it.length() } ?: error("Keine Audiodatei erzeugt")
+    }
+
+    /** Entfernt Playlist-Parameter, wenn der Link ein einzelnes Video enthält. */
+    private fun singleVideo(url: String): String = try {
+        val u = Uri.parse(url)
+        val hasVideo = u.getQueryParameter("v") != null || u.host?.contains("youtu.be") == true
+        if (!hasVideo || u.query == null) url
+        else {
+            val b = u.buildUpon().clearQuery()
+            for (n in u.queryParameterNames) {
+                if (n in setOf("list", "index", "start_radio", "pp")) continue
+                b.appendQueryParameter(n, u.getQueryParameter(n))
+            }
+            b.build().toString()
+        }
+    } catch (e: Exception) {
+        url
     }
 
     fun reset() {
