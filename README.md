@@ -1,4 +1,4 @@
-# Youtschik Privat
+# Youtschik
 
 YouTube-Link teilen → DOWNLOAD → MP3 (Fallback: m4a/webm, automatisch).
 

@@ -112,7 +112,7 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Youtschik Privat", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("Youtschik", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton(onClick = openSettings) { Text("⚙", fontSize = 32.sp, color = Color.White) }
         }
 
