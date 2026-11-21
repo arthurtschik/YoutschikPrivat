@@ -8,3 +8,5 @@ YouTube-Link teilen → DOWNLOAD → MP3 (Fallback: m4a/webm, automatisch).
 3. Jeder Push auf `main` baut die APK und veröffentlicht sie als Release `build-N`. Die App erkennt neuere Releases selbst.
 
 Die Release-Signatur (`app/release.jks`) muss gleich bleiben, sonst lassen sich Updates nicht installieren.
+
+Update-Test: dieser Build dient nur dem Test der Update-Funktion.
