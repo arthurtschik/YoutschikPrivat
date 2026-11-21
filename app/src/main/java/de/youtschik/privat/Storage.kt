@@ -80,11 +80,10 @@ object Storage {
             try {
                 val vol = externalVolume(ctx)
                 if (vol != null && Build.VERSION.SDK_INT >= 30) {
-                    val dir = File(vol.directory!!, "YoutschikPrivat").apply { mkdirs() }
-                    val target = File(dir, src.name)
+                    val target = File(vol.directory!!, src.name)
                     src.copyTo(target, overwrite = true)
                     MediaScannerConnection.scanFile(ctx, arrayOf(target.absolutePath), null, null)
-                    return "${vol.getDescription(ctx)}/YoutschikPrivat"
+                    return vol.getDescription(ctx)
                 }
             } catch (e: Exception) {
                 // weiter mit den normalen Ordnern
