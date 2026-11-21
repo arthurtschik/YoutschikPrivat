@@ -180,6 +180,15 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
     }
 }
 
+private fun openAllFilesAccess(ctx: android.content.Context) {
+    ctx.startActivity(
+        Intent(
+            android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+            android.net.Uri.parse("package:${ctx.packageName}")
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    )
+}
+
 @Composable
 private fun ProgressBar(p: Float?) {
     if (p == null) return
@@ -227,24 +236,40 @@ private fun SettingsScreen(back: () -> Unit) {
             TextButton(onClick = back) { Text("←", fontSize = 32.sp, color = Color.White) }
             Text("Einstellungen", fontSize = 22.sp, fontWeight = FontWeight.Bold)
         }
-        FolderButton("Standardordner", Storage.KEY_PRIMARY)
-        FolderButton("Ersatzordner", Storage.KEY_FALLBACK)
         var auto by remember { mutableStateOf(Storage.autoExternal(ctx)) }
+        var tick by remember { mutableIntStateOf(0) }
+        LaunchedEffect(Unit) { while (true) { delay(2000); tick++ } }
+
         Row(Modifier.fillMaxWidth().height(72.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Immer externen Datenträger nutzen", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             Switch(checked = auto, onCheckedChange = {
                 auto = it
                 Storage.setAutoExternal(ctx, it)
-                if (it && !Storage.hasAllFilesAccess()) {
-                    ctx.startActivity(
-                        Intent(
-                            android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
-                            android.net.Uri.parse("package:${ctx.packageName}")
-                        )
-                    )
-                }
+                if (it && !Storage.hasAllFilesAccess()) openAllFilesAccess(ctx)
             })
         }
+        if (auto) {
+            val label = key(tick) {
+                when {
+                    !Storage.hasAllFilesAccess() -> "Zugriff auf alle Dateien erlauben"
+                    else -> Storage.externalLabel(ctx) ?: "Kein Datenträger angeschlossen"
+                }
+            }
+            Button(
+                onClick = { if (!Storage.hasAllFilesAccess()) openAllFilesAccess(ctx) },
+                modifier = Modifier.fillMaxWidth().height(88.dp),
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Grey, contentColor = Color.White)
+            ) {
+                Column(Modifier.fillMaxWidth()) {
+                    Text("Standardordner", fontSize = 14.sp, color = Color.Gray)
+                    Text(label, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        } else {
+            FolderButton("Standardordner", Storage.KEY_PRIMARY)
+        }
+        FolderButton("Ersatzordner", Storage.KEY_FALLBACK)
         Text("Ohne gültigen Ordner: Music/YoutschikPrivat", fontSize = 14.sp, color = Color.Gray)
 
         var sponsor by remember { mutableStateOf(Storage.sponsorBlock(ctx)) }

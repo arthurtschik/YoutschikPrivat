@@ -24,7 +24,7 @@ object Storage {
     }
 
     const val KEY_AUTO_EXT = "auto_external"
-    fun autoExternal(ctx: Context) = ctx.getSharedPreferences(PREFS, 0).getBoolean(KEY_AUTO_EXT, false)
+    fun autoExternal(ctx: Context) = ctx.getSharedPreferences(PREFS, 0).getBoolean(KEY_AUTO_EXT, true)
     fun setAutoExternal(ctx: Context, on: Boolean) {
         ctx.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_AUTO_EXT, on).apply()
     }
@@ -32,10 +32,13 @@ object Storage {
     fun hasAllFilesAccess() = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
 
     /** Erster eingehängter Wechseldatenträger (SD/USB), egal wie er heißt. */
+    fun externalLabel(ctx: Context): String? =
+        if (Build.VERSION.SDK_INT >= 30) externalVolume(ctx)?.getDescription(ctx) else null
+
     private fun externalVolume(ctx: Context) =
         if (Build.VERSION.SDK_INT < 30 || !hasAllFilesAccess()) null
         else ctx.getSystemService(StorageManager::class.java).storageVolumes.firstOrNull {
-            it.isRemovable && !it.isPrimary && it.state == Environment.MEDIA_MOUNTED && it.directory != null
+            !it.isPrimary && !it.isEmulated && it.state == Environment.MEDIA_MOUNTED && it.directory != null
         }
 
     const val KEY_SPONSOR = "sponsorblock"
