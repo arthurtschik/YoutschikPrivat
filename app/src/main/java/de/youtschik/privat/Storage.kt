@@ -2,7 +2,11 @@ package de.youtschik.privat
 
 import android.content.ContentValues
 import android.content.Context
+import android.media.MediaScannerConnection
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.os.storage.StorageManager
 import android.provider.MediaStore
 import androidx.documentfile.provider.DocumentFile
 import java.io.File
@@ -18,6 +22,21 @@ object Storage {
     fun set(ctx: Context, key: String, value: String?) {
         ctx.getSharedPreferences(PREFS, 0).edit().putString(key, value).apply()
     }
+
+    const val KEY_AUTO_EXT = "auto_external"
+    fun autoExternal(ctx: Context) = ctx.getSharedPreferences(PREFS, 0).getBoolean(KEY_AUTO_EXT, false)
+    fun setAutoExternal(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_AUTO_EXT, on).apply()
+    }
+
+    fun hasAllFilesAccess() = Build.VERSION.SDK_INT >= 30 && Environment.isExternalStorageManager()
+
+    /** Erster eingehängter Wechseldatenträger (SD/USB), egal wie er heißt. */
+    private fun externalVolume(ctx: Context) =
+        if (Build.VERSION.SDK_INT < 30 || !hasAllFilesAccess()) null
+        else ctx.getSystemService(StorageManager::class.java).storageVolumes.firstOrNull {
+            it.isRemovable && !it.isPrimary && it.state == Environment.MEDIA_MOUNTED && it.directory != null
+        }
 
     const val KEY_SPONSOR = "sponsorblock"
     fun sponsorBlock(ctx: Context) = ctx.getSharedPreferences(PREFS, 0).getBoolean(KEY_SPONSOR, true)
@@ -57,6 +76,20 @@ object Storage {
     /** Speichert die Datei: 1. Standardordner, 2. Ersatzordner, 3. Music/YoutschikPrivat. */
     fun save(ctx: Context, src: File): String {
         val mime = mimeFor(src.name)
+        if (autoExternal(ctx)) {
+            try {
+                val vol = externalVolume(ctx)
+                if (vol != null && Build.VERSION.SDK_INT >= 30) {
+                    val dir = File(vol.directory!!, "YoutschikPrivat").apply { mkdirs() }
+                    val target = File(dir, src.name)
+                    src.copyTo(target, overwrite = true)
+                    MediaScannerConnection.scanFile(ctx, arrayOf(target.absolutePath), null, null)
+                    return "${vol.getDescription(ctx)}/YoutschikPrivat"
+                }
+            } catch (e: Exception) {
+                // weiter mit den normalen Ordnern
+            }
+        }
         for (key in listOf(KEY_PRIMARY, KEY_FALLBACK)) {
             val dir = usable(ctx, get(ctx, key)) ?: continue
             try {

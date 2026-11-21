@@ -217,6 +217,22 @@ private fun SettingsScreen(back: () -> Unit) {
         }
         FolderButton("Standardordner", Storage.KEY_PRIMARY)
         FolderButton("Ersatzordner", Storage.KEY_FALLBACK)
+        var auto by remember { mutableStateOf(Storage.autoExternal(ctx)) }
+        Row(Modifier.fillMaxWidth().height(72.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Immer externen Datenträger nutzen", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Switch(checked = auto, onCheckedChange = {
+                auto = it
+                Storage.setAutoExternal(ctx, it)
+                if (it && !Storage.hasAllFilesAccess()) {
+                    ctx.startActivity(
+                        Intent(
+                            android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                            android.net.Uri.parse("package:${ctx.packageName}")
+                        )
+                    )
+                }
+            })
+        }
         Text("Ohne gültigen Ordner: Music/YoutschikPrivat", fontSize = 14.sp, color = Color.Gray)
 
         var sponsor by remember { mutableStateOf(Storage.sponsorBlock(ctx)) }
