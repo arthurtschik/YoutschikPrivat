@@ -92,9 +92,9 @@ object Engine {
             state = DlState.Running(-1f)
             YoutubeDL.getInstance().execute(base().apply { addOption("-f", "bestaudio/best") }, null, progress)
         }
-        return tmp.listFiles()?.firstOrNull {
-            it.isFile && !it.name.endsWith(".part") && !it.name.endsWith(".ytdl")
-        } ?: error("Keine Datei erzeugt")
+        val audio = setOf("mp3", "m4a", "webm", "opus", "ogg", "aac", "flac", "wav")
+        return tmp.listFiles()?.filter { it.isFile && it.extension.lowercase() in audio }
+            ?.maxByOrNull { it.length() } ?: error("Keine Audiodatei erzeugt")
     }
 
     fun reset() {

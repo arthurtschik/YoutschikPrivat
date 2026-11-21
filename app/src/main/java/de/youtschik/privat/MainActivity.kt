@@ -9,6 +9,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -33,7 +37,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handle(intent)
+        if (savedInstanceState == null) handle(intent)
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
@@ -51,6 +55,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handle(intent)
     }
 
@@ -61,6 +66,8 @@ class MainActivity : ComponentActivity() {
             sharedUrl = it.value
             Engine.reset()
         }
+        // Intent verbrauchen, damit er beim Neuaufbau der Activity nicht erneut gelesen wird
+        setIntent(Intent(this, MainActivity::class.java))
     }
 }
 
@@ -71,6 +78,7 @@ private fun App(url: String, onUrl: (String) -> Unit) {
     if (settings) SettingsScreen { settings = false } else MainScreen(url, onUrl) { settings = true }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () -> Unit) {
     val ctx = LocalContext.current
@@ -79,11 +87,30 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
     var update by remember { mutableStateOf<UpdateInfo?>(null) }
     var updateBusy by remember { mutableStateOf(false) }
 
+    var refreshing by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         update = withContext(Dispatchers.IO) { runCatching { Updater.check() }.getOrNull() }
     }
 
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = {
+            scope.launch {
+                refreshing = true
+                onUrl("")
+                Engine.reset()
+                update = withContext(Dispatchers.IO) { runCatching { Updater.check() }.getOrNull() }
+                delay(300)
+                refreshing = false
+            }
+        },
+        modifier = Modifier.fillMaxSize()
+    ) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Youtschik Privat", fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             TextButton(onClick = openSettings) { Text("⚙", fontSize = 32.sp, color = Color.White) }
@@ -119,7 +146,7 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
         Button(
             onClick = { Engine.start(ctx.applicationContext, url.trim()) },
             enabled = url.isNotBlank() && !running,
-            modifier = Modifier.fillMaxWidth().weight(1f),
+            modifier = Modifier.fillMaxWidth().height(180.dp),
             shape = RoundedCornerShape(32.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Yellow, contentColor = Color.Black,
@@ -144,6 +171,7 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
                 DlState.Idle -> {}
             }
         }
+    }
     }
 }
 
