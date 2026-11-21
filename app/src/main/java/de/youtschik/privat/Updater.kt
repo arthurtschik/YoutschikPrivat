@@ -4,6 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.FileProvider
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -14,6 +17,9 @@ data class UpdateInfo(val code: Int, val assetUrl: String)
 
 object Updater {
     private val client = OkHttpClient()
+    /** null = kein Update läuft, < 0 = unbekannt, sonst 0..1 */
+    var progress by mutableStateOf<Float?>(null)
+
     val enabled get() = BuildConfig.UPDATE_TOKEN.isNotBlank()
 
     private fun req(url: String, accept: String) = Request.Builder()
@@ -46,7 +52,21 @@ object Updater {
         val apk = File(dir, "update.apk")
         client.newCall(req(info.assetUrl, "application/octet-stream")).execute().use { r ->
             if (!r.isSuccessful) error("Download fehlgeschlagen (${r.code})")
-            apk.outputStream().use { out -> r.body!!.byteStream().copyTo(out) }
+            val body = r.body!!
+            val total = body.contentLength()
+            var done = 0L
+            val buf = ByteArray(64 * 1024)
+            apk.outputStream().use { out ->
+                body.byteStream().use { input ->
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        done += n
+                        progress = if (total > 0) done.toFloat() / total else -1f
+                    }
+                }
+            }
         }
         return apk
     }
@@ -54,6 +74,7 @@ object Updater {
     /** Prüft, lädt und startet die Installation in einem Schritt. Gibt eine Statusmeldung zurück. */
     fun checkAndInstall(ctx: Context, onStatus: (String) -> Unit, known: UpdateInfo? = null): String {
         if (!enabled) return "Kein Update-Token in dieser Version"
+        progress = -1f
         return try {
             onStatus("Prüfe…")
             val info = known ?: check() ?: return "Aktuell"
@@ -63,6 +84,8 @@ object Updater {
             else "Bitte „Installieren erlauben“ aktivieren, zurückgehen und erneut tippen"
         } catch (e: Exception) {
             e.message ?: "Fehler"
+        } finally {
+            progress = null
         }
     }
 

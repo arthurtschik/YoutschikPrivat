@@ -129,7 +129,12 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
                 modifier = Modifier.fillMaxWidth().height(64.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black)
-            ) { Text(if (updateBusy) "Lade Update…" else "Update installieren", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
+            ) {
+                val p = Updater.progress
+                val label = if (updateBusy) (if (p != null && p >= 0f) "Lade Update… ${(p * 100).toInt()} %" else "Lade Update…") else "Update installieren"
+                Text(label, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
+            ProgressBar(Updater.progress)
         }
 
         OutlinedTextField(
@@ -173,6 +178,13 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
         }
     }
     }
+}
+
+@Composable
+private fun ProgressBar(p: Float?) {
+    if (p == null) return
+    if (p >= 0f) LinearProgressIndicator(progress = { p }, Modifier.fillMaxWidth().height(8.dp), color = Yellow)
+    else LinearProgressIndicator(Modifier.fillMaxWidth().height(8.dp), color = Yellow)
 }
 
 @Composable
@@ -249,6 +261,7 @@ private fun SettingsScreen(back: () -> Unit) {
             shape = RoundedCornerShape(20.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Grey, contentColor = Color.White)
         ) { Text("Nach Update suchen", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+        ProgressBar(Updater.progress)
         if (info.isNotEmpty()) Text(info, fontSize = 16.sp)
         Text("Version ${BuildConfig.VERSION_NAME}", fontSize = 14.sp, color = Color.Gray)
     }
