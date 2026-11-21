@@ -19,6 +19,12 @@ object Storage {
         ctx.getSharedPreferences(PREFS, 0).edit().putString(key, value).apply()
     }
 
+    const val KEY_SPONSOR = "sponsorblock"
+    fun sponsorBlock(ctx: Context) = ctx.getSharedPreferences(PREFS, 0).getBoolean(KEY_SPONSOR, true)
+    fun setSponsorBlock(ctx: Context, on: Boolean) {
+        ctx.getSharedPreferences(PREFS, 0).edit().putBoolean(KEY_SPONSOR, on).apply()
+    }
+
     /** Liefert den Ordner nur, wenn er gespeichert, erreichbar und beschreibbar ist. */
     fun usable(ctx: Context, uriStr: String?): DocumentFile? {
         if (uriStr.isNullOrBlank()) return null

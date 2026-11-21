@@ -121,7 +121,7 @@ private fun MainScreen(url: String, onUrl: (String) -> Unit, openSettings: () ->
                 onClick = {
                     updateBusy = true
                     scope.launch(Dispatchers.IO) {
-                        runCatching { Updater.download(ctx, u) }.onSuccess { Updater.install(ctx, it) }
+                        Updater.checkAndInstall(ctx, {}, u)
                         updateBusy = false
                     }
                 },
@@ -219,13 +219,15 @@ private fun SettingsScreen(back: () -> Unit) {
         FolderButton("Ersatzordner", Storage.KEY_FALLBACK)
         Text("Ohne gültigen Ordner: Music/YoutschikPrivat", fontSize = 14.sp, color = Color.Gray)
 
+        var sponsor by remember { mutableStateOf(Storage.sponsorBlock(ctx)) }
+        Row(Modifier.fillMaxWidth().height(72.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Werbung im Video entfernen", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Switch(checked = sponsor, onCheckedChange = { sponsor = it; Storage.setSponsorBlock(ctx, it) })
+        }
+
         Button(
             onClick = {
-                info = "Prüfe…"
-                scope.launch(Dispatchers.IO) {
-                    info = runCatching { if (Updater.check() != null) "Update verfügbar – siehe Startseite" else "Aktuell" }
-                        .getOrElse { it.message ?: "Fehler" }
-                }
+                scope.launch(Dispatchers.IO) { info = Updater.checkAndInstall(ctx, { info = it }) }
             },
             modifier = Modifier.fillMaxWidth().height(72.dp),
             shape = RoundedCornerShape(20.dp),

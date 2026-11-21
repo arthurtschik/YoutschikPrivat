@@ -51,6 +51,21 @@ object Updater {
         return apk
     }
 
+    /** Prüft, lädt und startet die Installation in einem Schritt. Gibt eine Statusmeldung zurück. */
+    fun checkAndInstall(ctx: Context, onStatus: (String) -> Unit, known: UpdateInfo? = null): String {
+        if (!enabled) return "Kein Update-Token in dieser Version"
+        return try {
+            onStatus("Prüfe…")
+            val info = known ?: check() ?: return "Aktuell"
+            onStatus("Lade Update…")
+            val apk = download(ctx, info)
+            if (install(ctx, apk)) "Installation gestartet"
+            else "Bitte „Installieren erlauben“ aktivieren, zurückgehen und erneut tippen"
+        } catch (e: Exception) {
+            e.message ?: "Fehler"
+        }
+    }
+
     /** Startet die Installation; false, wenn zuerst die Berechtigung erteilt werden muss. */
     fun install(ctx: Context, apk: File): Boolean {
         if (!ctx.packageManager.canRequestPackageInstalls()) {

@@ -49,6 +49,7 @@ object Engine {
     }
 
     fun start(appCtx: Context, url: String) {
+        val sponsor = Storage.sponsorBlock(appCtx)
         if (state is DlState.Running) return
         state = DlState.Running(-1f)
         scope.launch {
@@ -56,7 +57,7 @@ object Engine {
             try {
                 ensureInit(appCtx)
                 maybeUpdateYtDlp(appCtx)
-                val file = fetch(url, tmp)
+                val file = fetch(url, tmp, sponsor)
                 val where = Storage.save(appCtx, file)
                 state = DlState.Done("${file.nameWithoutExtension}\n.${file.extension} → $where")
             } catch (e: CancellationException) {
@@ -69,7 +70,7 @@ object Engine {
         }
     }
 
-    private fun fetch(url: String, tmp: File): File {
+    private fun fetch(url: String, tmp: File, sponsor: Boolean): File {
         val template = "${tmp.absolutePath}/%(title).100B.%(ext)s"
         fun base() = YoutubeDLRequest(url).apply {
             addOption("--no-playlist")
@@ -78,20 +79,35 @@ object Engine {
             addOption("-o", template)
         }
         val progress: (Float, Long, String) -> Unit = { p, _, _ -> state = DlState.Running(p / 100f) }
-        try {
-            // Wunschformat: MP3
-            val r = base().apply {
-                addOption("-x")
-                addOption("--audio-format", "mp3")
-                addOption("--audio-quality", "0")
-            }
-            YoutubeDL.getInstance().execute(r, null, progress)
-        } catch (e: Exception) {
-            // Automatischer Fallback ohne Nachfrage: bestes Audio im Originalformat
-            tmp.listFiles()?.forEach { it.delete() }
-            state = DlState.Running(-1f)
-            YoutubeDL.getInstance().execute(base().apply { addOption("-f", "bestaudio/best") }, null, progress)
+        // Versuche in dieser Reihenfolge: MP3 (ohne Werbung/Sponsor-Teile), MP3 pur, Originalformat
+        data class Attempt(val mp3: Boolean, val skipSponsor: Boolean)
+        val attempts = buildList {
+            if (sponsor) add(Attempt(true, true))
+            add(Attempt(true, false))
+            add(Attempt(false, false))
         }
+        var last: Exception? = null
+        var ok = false
+        for (a in attempts) {
+            try {
+                tmp.listFiles()?.forEach { it.delete() }
+                state = DlState.Running(-1f)
+                val r = base().apply {
+                    if (a.skipSponsor) addOption("--sponsorblock-remove", "sponsor,selfpromo,interaction")
+                    if (a.mp3) {
+                        addOption("-x")
+                        addOption("--audio-format", "mp3")
+                        addOption("--audio-quality", "0")
+                    } else addOption("-f", "bestaudio/best")
+                }
+                YoutubeDL.getInstance().execute(r, null, progress)
+                ok = true
+                break
+            } catch (e: Exception) {
+                last = e
+            }
+        }
+        if (!ok) throw last ?: IllegalStateException("Download fehlgeschlagen")
         val audio = setOf("mp3", "m4a", "webm", "opus", "ogg", "aac", "flac", "wav")
         return tmp.listFiles()?.filter { it.isFile && it.extension.lowercase() in audio }
             ?.maxByOrNull { it.length() } ?: error("Keine Audiodatei erzeugt")
